@@ -1,0 +1,120 @@
+---
+title: "LMM Assignment"
+author: "Jacob Wyco"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: TRUE
+    self_contained: TRUE
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+![Figure 1. Kitty](images/kitty.jpg)
+
+## Libraries and Data Set up
+
+```{r Libraries}
+library(ggplot2)
+library(dplyr)
+library(arm)
+library(MASS)
+library(ggfortify)
+library(nlme)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(ggtext)
+library(patchwork)
+
+```
+
+```{r Data set, echo=FALSE, message=FALSE, error=FALSE}
+
+cat <- read.csv("2010-2011 Cat Home Range.csv")
+cat$Season <- as.factor(cat$Season)
+cat <- filter(cat, Season != "Day")
+cat <- filter(cat, Season != "Night")
+cat$Sex <- as.factor(cat$Sex)
+cat$Cat.ID <- as.factor(cat$Cat.ID)
+View(cat)
+NewCat <- cat %>%
+  rename(SeasonalHR = Seasonal.HR.area..ha..95..KDE..all.cats.)
+NewCat <- filter(NewCat, SeasonalHR!= "NA")
+```
+
+
+## Means and Modeling
+
+```{r Means, echo=FALSE, message=FALSE, error=FALSE}
+
+Cat_Means <- NewCat %>%
+  group_by(Season) %>%
+  summarise(mean_HR=mean(SeasonalHR),
+            se_HR=sd(SeasonalHR)/sqrt(n()))
+Cat_Means
+```
+
+```{r model}
+mixed_cat <- lmer(SeasonalHR~(Season*Sex)+(1|Cat.ID), data = NewCat)
+anova(mixed_cat)
+```
+```{r summary}
+summary(mixed_cat)
+```
+
+## Plots
+
+```{r ggplot, echo=FALSE, message=FALSE, error=FALSE}
+ggplot(NewCat, aes(x=Season, y=SeasonalHR, color=Sex)) + 
+  geom_boxplot() +
+  scale_y_continuous() +
+  labs(title="Seasonal HR",
+       subtitle = "Raw data",
+       x= "Seasons", 
+       y = "Seasonal HR")
+
+```
+
+```{r ggplot 2, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+ggplot(NewCat, aes(x=Season, y=SeasonalHR, group=Cat.ID, color=Cat.ID, shape=Cat.ID)) +
+  geom_point(size=4, position = position_dodge2(width=.33, preserve = "total")) +
+  scale_y_continuous() +
+  #geom_line() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title="Seasonal HR",
+       subtitle = "Using Cat ID",
+       x= "Seasons", 
+       y = "HR")
+
+
+```
+
+## Assumption Check
+
+```{r assumptions}
+performance::check_model(mixed_cat)
+```
+
+
+
+
+
+
+## Emmeans
+
+```{r emmeans,echo=FALSE, message=FALSE, error=FALSE}
+mixed_cat_emm <- emmeans(mixed_cat, "Season")
+mixed_cat_emm
+```
+
+```{r more emmeans, echo=FALSE, message=FALSE, error=FALSE}
+emmeans(mixed_cat, "Sex")
+```
+
+
+![Figure 2. Big Kitty](images/bigkitty.jpg)
+
+
